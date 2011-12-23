@@ -3,51 +3,49 @@
   (:use incanter.processing))
 
 (defn show-good-looks []
-(let [radius (ref 50.0)
-      X (ref nil)
-      Y (ref nil)
-      nX (ref nil)
-      nY (ref nil)
-      delay 16
+  (let [w 600 h 800
+	radius 50
+	delay 25
+	grav 0.1
 
-      ;; define a sketch object (i.e. PApplet)
-      sktch (sketch
+	balls (ref [])
 
-              ;; define the setup function
-              (setup []
-                     (doto this
-                       ;no-loop
-                       (size 800 600)
-                       (stroke-weight 10)
-                       (framerate 15)
-                       smooth)
-                     (dosync
-                       (ref-set X (/ (width this) 2))
-                       (ref-set Y (/ (width this) 2))
-                       (ref-set nX @X)
-                       (ref-set nY @Y)))
+	new-ball (fn [x y] (ref [x y 0 0]))
+	
+	;; define a sketch object (i.e. PApplet)
+	sktch (sketch
+	       
+	       ;; define the setup function
+	       (setup []
 
-              ;; define the draw function
-              (draw []
-                    (dosync
-                      (ref-set radius (+ @radius (sin (/ (frame-count this) 4))))
-                      (ref-set X (+ @X (/ (- @nX @X) delay)))
-                      (ref-set Y (+ @Y (/ (- @nY @Y) delay))))
-                    (doto this
-                      (background 0) ;; gray
-                      (fill 0 121 184)
-                      (stroke 255)
-                      (ellipse @X @Y @radius @radius)
-                      ))
+		      (doto this
+			(size w h)
+			(stroke-weight 2)
+			(framerate (/ 1000.0 delay))
+			smooth))
+		      
+	       ;; define the draw function
+	       (draw []
 
-              ;; define mouseMoved function (mouseMoved and mouseDraw 
-              ;; require a 'mouse-event' argument unlike the standard Processing 
-              ;; methods)
-              (mouseClicked [mouse-event]
-                (dosync
-                  ;; mouse-x and mouse-y take the mouse-event as an argument
-                  (ref-set nX (mouse-x mouse-event)) 
-                  (ref-set nY (mouse-y mouse-event)))))]
+		     (dosync
+		      (doseq [b @balls]
+			(let [[x y dx dy] @b]
+			  (ref-set b [(+ dx x) (+ dy y) dx (+ grav dy)]))))
 
-  ;; use the view function to display the sketch
-  (view sktch :size [800 600])))
+		     (doto this
+		       (background 0)
+		       (fill 0)
+		       (stroke 255 0 0))		     
+		     
+		     (doseq [b @balls]
+		       (let [[x y _ _] @b]
+			 (doto this
+			   (ellipse x y 5 5)))))
+	       
+	       (mouseClicked [e]
+			     (dosync
+			      (ref-set balls (conj @balls (new-ball (mouse-x e)
+								   (mouse-y e)))))))]
+    
+    ;; use the view function to display the sketch
+    (view sktch :title "BINK" :size [w h])))
