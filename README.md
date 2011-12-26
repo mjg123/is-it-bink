@@ -1,3 +1,3 @@
 # bink
 
-for bunkin
+clockware for overtone.  run `lein repl`
