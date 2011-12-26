@@ -33,7 +33,7 @@
 
 (defn- bounce-single [b line]
   (if (intersect? b line)
-    (l/bing (/ 100000 (len line))))
+    (l/ks1 (/ 100000 (len line))))
   [0 0])
 
 (defn- bounce-off [b lines]
