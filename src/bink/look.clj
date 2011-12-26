@@ -5,7 +5,16 @@
 
 (def w 600)
 (def h 800)
-(def resti 0.999) ; coefficient of restitution
+(def resti 0.94) ; coefficient of restitution (1.00 = elastic, 0.94 = pingpong ball, 0.81 = baseball)
+
+(defn- new-balls [x y]
+  [
+   (ref [x y 0 0])
+;   (ref [x y 0 -1]) ;; uncomment for starburst effect
+;   (ref [x y 0 -2])
+;   (ref [x y -1 -1])
+;   (ref [x y 1 -1])
+   ])
 
 (defn- create-line []
   (let [x1 (rand-int w)
@@ -32,7 +41,7 @@
 	    (xp (- (+ x dx) x1) (- (+ y dy) y1) (- x2 x1) (- y2 y1))))
    
 					; so check that the ball is within the bounds of the line, too
-   (or (<= x1 x x2) (<= y1 y y2))))
+   (and (<= x1 x x2) (<= y1 y y2))))
 
 (defn- len [[x1 y1 x2 y2]]
   (Math/sqrt (+ (* (- x2 x1) (- x2 x1)) (* (- y2 y1) (- y2 y1)))))
@@ -40,10 +49,13 @@
 (defn- speed [[_ _ dx dy]]
   (len [0 0 dx dy]))
 
+(defn- panpos [x]
+  (- (* 2 (/ x w)) 1))
+
 (defn- bounce-single [b line]
   (if (intersect? b line)
     (do
-      (l/ks1 (/ 100000 (len line)) (min 1 (* 0.1 (speed b))))
+      (l/ks1 (/ 100000 (len line)) (min 1 (* 0.1 (speed b))) (panpos (first b)))
       
 					; eqn from http://en.wikipedia.org/wiki/Reflection_%28mathematics%29
       (let [[x y dx dy] b
@@ -67,8 +79,6 @@
 	balls (ref [])
 	lines (take 10 (repeatedly create-line))
 
-	new-ball (fn [x y] (ref [x y 0 0]))
-	
 	;; define a sketch object (i.e. PApplet)
 	sktch (sketch
 	       
@@ -120,8 +130,8 @@
 	       
 	       (mousePressed [e]
 			     (dosync
-			      (ref-set balls (conj @balls (new-ball (mouse-x e)
-								    (mouse-y e)))))))]
+			      (ref-set balls (concat @balls (new-balls (mouse-x e)
+								       (mouse-y e)))))))]
     
     ;; use the view function to display the sketch
     (view sktch :title "BINK" :size [w h] :exit-on-close true)))
