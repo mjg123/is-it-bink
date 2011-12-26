@@ -105,9 +105,9 @@
 			(let [[x y dx dy] @b
 			      [ddx ddy] (bounce-off [x y dx dy] lines)
 			      dx (+ dx ddx)
-			      dy (+ dy ddy grav)]
+			      dy (+ dy ddy)]
 			  
-			  (ref-set b [(+ dx x) (+ dy y) dx dy]))))
+			  (ref-set b [(+ dx x) (+ dy y) dx (+ dy grav)]))))
 
 		     
 					; clear background
