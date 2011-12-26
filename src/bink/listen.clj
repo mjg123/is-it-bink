@@ -12,7 +12,7 @@
 
 					; following inst taken from one of the examples in the source:
 					; Experimenting with Karplus Strong synthesis...
-(definst ks1 [note 60 amp 0.8 dur 2 decay 30 coef 0.3 gate 1]
+(definst ks1 [note 440 amp 0.8 pan 0.5 dur 2 decay 30 coef 0.3 gate 1]
   (let [noize (* 0.8 (white-noise))
         dly (/ 1.0 note)
         plk   (pluck noize gate (/ 1.0 note) dly
@@ -22,4 +22,4 @@
         filt (rlpf dist (* 12 note) 0.6)
         clp (clip2 filt 0.8)
         reverb (free-verb clp 0.4 0.8 0.2)]
-    (* amp (env-gen (perc 0.0001 dur) :action FREE) reverb)))
+    (pan2 (* amp (env-gen (perc 0.0001 dur) :action FREE) reverb) pan)))

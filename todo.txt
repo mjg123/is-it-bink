@@ -1,4 +1,3 @@
-bouncing off lines
 moveable line endpoints
 coerce pitch values into a scale
 bells as circles
@@ -8,4 +7,6 @@ different modes of ball dropping (one, three, starburst)
 triggers and repeat actions and things
 change the sizes of things?
 
+bouncing off lines
+close on exit
 twangy lines

@@ -5,6 +5,7 @@
 
 (def w 600)
 (def h 800)
+(def resti 0.999) ; coefficient of restitution
 
 (defn- create-line []
   (let [x1 (rand-int w)
@@ -18,6 +19,11 @@
   [ux uy vx vy]
   (- (* ux vy) (* uy vx)))
 
+(defn dp
+  "2d dot-product"
+  [[ux uy] [vx vy]]
+  (+ (* ux vx) (* uy vy)))
+
 (defn- intersect? [[x y dx dy] [x1 y1 x2 y2]]
   (and
    					; cross-products with different sign indicate line has been crossed
@@ -26,15 +32,27 @@
 	    (xp (- (+ x dx) x1) (- (+ y dy) y1) (- x2 x1) (- y2 y1))))
    
 					; so check that the ball is within the bounds of the line, too
-   (or (< x1 x x2) (< y1 y y2))))
+   (or (<= x1 x x2) (<= y1 y y2))))
 
 (defn- len [[x1 y1 x2 y2]]
   (Math/sqrt (+ (* (- x2 x1) (- x2 x1)) (* (- y2 y1) (- y2 y1)))))
 
+(defn- speed [[_ _ dx dy]]
+  (len [0 0 dx dy]))
+
 (defn- bounce-single [b line]
   (if (intersect? b line)
-    (l/ks1 (/ 100000 (len line))))
-  [0 0])
+    (do
+      (l/ks1 (/ 100000 (len line)) (min 1 (* 0.1 (speed b))))
+      
+					; eqn from http://en.wikipedia.org/wiki/Reflection_%28mathematics%29
+      (let [[x y dx dy] b
+	    [x1 y1 x2 y2] line
+	    l [(- x2 x1) (- y2 y1)]
+	    mul (* 2 (/ (dp [dx dy] l) (dp l l)))]
+	
+	[(* resti (- (* mul (first l)) dx dx)) (* resti (- (* mul (second l)) dy dy))]))
+    [0 0]))
 
 (defn- bounce-off [b lines]
   (reduce
@@ -69,14 +87,17 @@
 		     (dosync
 		      
 					; remove balls that aren't onscreen any more
-		      (ref-set balls (filter #(let [[x y _ _] @%] (and (< 0 x w) (< 0 y h))) @balls))
+		      (ref-set balls (filter #(let [[x y _ _] @%] (and (< 0 x w) (< y h))) @balls))
 
 		      
 					; update all positions
 		      (doseq [b @balls]
 			(let [[x y dx dy] @b
-			      _ (bounce-off [x y dx dy] lines)]
-			  (ref-set b [(+ dx x) (+ dy y) dx (+ dy grav)]))))
+			      [ddx ddy] (bounce-off [x y dx dy] lines)
+			      dx (+ dx ddx)
+			      dy (+ dy ddy grav)]
+			  
+			  (ref-set b [(+ dx x) (+ dy y) dx dy]))))
 
 		     
 					; clear background
@@ -103,4 +124,4 @@
 								    (mouse-y e)))))))]
     
     ;; use the view function to display the sketch
-    (view sktch :title "BINK" :size [w h])))
+    (view sktch :title "BINK" :size [w h] :exit-on-close true)))
