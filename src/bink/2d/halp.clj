@@ -1,76 +1,15 @@
 (ns bink.2d.halp
-  (:import org.jbox2d.dynamics.World)
-  (:import org.jbox2d.dynamics.BodyDef)
-  (:import org.jbox2d.dynamics.BodyType)
-  (:import org.jbox2d.dynamics.FixtureDef)
+  (:import org.jbox2d.dynamics.Body)
   (:import org.jbox2d.collision.shapes.CircleShape)
   (:import org.jbox2d.collision.shapes.PolygonShape)
   (:import org.jbox2d.common.Vec2)
 
+  (:use bink.2d.clj-box-2d)
+  
   (:use incanter.core)
   (:use incanter.processing))
 
-
-;; cljBox2d stuff
-
-(defn vec2 [x y]
-  (Vec2. x y))
-
-(def earth-gravity (vec2 0 -9.81))
-
-(defn pos [o]
-  [(. (.getPosition o) x)
-   (. (.getPosition o) y)])
-
-;;; my app box2d stuff
-
-(defn create-ball [world x y]
-
-  (let [bd (BodyDef.)
-	cs (CircleShape.)
-	fd (FixtureDef.)]
-    
-    (.set (. bd position) x y)
-    (set! (. bd type) BodyType/DYNAMIC)
-
-    (set! (. cs m_radius) 0.5)
-
-    (set! (. fd shape) cs)
-    (set! (. fd density) 0.9)
-    (set! (. fd friction) 0.3)
-    (set! (. fd restitution) 0.81)
-
-    (let [body (.createBody world bd)
-	  _ (.createFixture body fd)]
-      
-      body)))
-
-(defn create-floor [world x y w h]
-					;          PolygonShape ps = new PolygonShape();
-					;        ps.setAsBox(100,1);
-					;        
-					;        FixtureDef fd2 = new FixtureDef();
-					;        fd2.shape = ps;;;
-					;
-					;        BodyDef bd2 = new BodyDef();
-					;        bd2.position= new Vec2(0,0);
-					;
-					;        world.createBody(bd2).createFixture(fd2);
-  (let [ps (PolygonShape.)
-	fd (FixtureDef.)
-	bd (BodyDef.)]
-
-    (.setAsBox ps w h (vec2 x y) 0.1)
-    (set! (. fd shape) ps)
-    (let [body (.createBody world bd)
-	  _ (.createFixture body fd)]
-      body)))
-
-(defn step [w step]
-  (let [velocity-iterations 8
-	position-iterations 3]
-    (.step w step velocity-iterations position-iterations)))
-
+(set! *warn-on-reflection* true)
 
 ;; processing for my app
 
@@ -81,8 +20,34 @@
 (def rate 60)
 (def scl 20)
 
-(defn box->world [[x y]]
-  [(+ (* x scl) (/ w 2)) (-  600 (* scl y))])
+(def box->world
+  (transform-fn scl [(/ w 2) (- h 100)]))
+
+(defmulti draw-body (fn [sktch body] (class (get-shape body))))
+
+(defmethod draw-body CircleShape [sktch ^Body body]
+	   (let [px (. (.getPosition body) x)
+		 py (. (.getPosition body) y)
+		 [x y] (box->world [px py])
+		 a (.getAngle body)
+		 ^CircleShape shape (get-shape body)
+		 r (* (. shape m_radius) scl)
+		 dia (* 2 r)]
+	     (doto sktch
+	       (ellipse x y dia dia)
+	       (line x y (+ x (* r (Math/sin a))) (+ y (* r (Math/cos a)))))))
+
+(defmethod draw-body PolygonShape [sktch ^Body body]
+	   (let [^PolygonShape shape (get-shape body)
+		 vxs (.getVertices shape)
+		 vxc (.getVertexCount shape)]
+	     (doseq [i (range 0 vxc)]
+	       (let [j (mod (inc i) vxc)
+		     ^Vec2 s (.getWorldPoint body (get vxs i))
+		     ^Vec2 e (.getWorldPoint body (get vxs j))
+		     [sx sy] (box->world [(. s x) (. s y)])
+		     [ex ey] (box->world [(. e x) (. e y)])]
+		 (line sktch sx sy ex ey)))))
 
 (def sktch
      
@@ -92,7 +57,7 @@
 	     (doto this
 	       (size w h)
 	       (framerate rate)
-	       (smooth)))
+	       (comment (smooth))))
       
       (draw []
 	    (when (@everything :world)
@@ -101,37 +66,45 @@
 
 	      (doto this
 		(background 0)
-		(fill 0)
-		(stroke 255)
+		(fill 0))
 
-		(line 100 560 500 520))
-
-	      (doseq [b (@everything :balls)]
-		(let [[x y] (box->world (pos b))]
-		  
-		  (doto this
-		    (stroke 255)
-		    (ellipse x y (* scl 1) (* scl 1))
-		    (line x y (+ x (* (/ scl 2) (Math/sin (.getAngle b)))) (+ y (* (/ scl 2) (Math/cos (.getAngle b))))))))))))
+	      (doseq [b (@everything :things)]
+		(stroke this 255)
+		(draw-body this b))))))
 
 
 ;; my-app stuff
 
+(def ball-props {:restitution 0.94})
+(def wall-props {:type :static})
+
+(defn no-fn [& n]
+  nil)
+
+(defn create-listener [fns]
+  (reify org.jbox2d.callbacks.ContactListener
+	 (beginContact [_ c] ((fns :begin-contact no-fn) c))
+	 (endContact [_ c] ((fns :end-contact no-fn) c))
+	 (preSolve [_ c m] ((fns :pre-solve no-fn) c m))
+	 (postSolve [_ c m] ((fns :post-solve no-fn) c m))))
+
 (defn setup-world []
-  (let [world (World. earth-gravity true)
-	b1 (create-ball world 0 10)
-	b2 (create-ball world 0.05 8)
-	b3 (create-ball world 0.05 6)
-	b4 (create-ball world 0.05 4)
-	b5 (create-ball world -0.05 12)
-	b6 (create-ball world -0.05 14)
-	b7 (create-ball world -0.05 16)
-	b8 (create-ball world -0.05 18)
-	b9 (create-ball world -0.05 20)
-	_ (create-floor world 0 3 10 0.1)]
-    (reset! everything {:world world :balls [b1 b2 b3 b4 b5 b6 b7 b8 b9]})
-    (view sktch :title "BINK2d" :size [w h] :exit-on-close true)))
+  (let [w (create-world)]
+    (.setContactListener w (create-listener {:begin-contact println}))
+    (reset! everything
+	    {:world w
+	     :things [(create-ball w 0 10 0.1 ball-props)
+		      (create-ball w 0.05 8 0.2 ball-props)
+		      (create-ball w 0.05 6 0.3 ball-props)
+		      (create-ball w 0.05 4 0.4 ball-props)
+		      (create-ball w -0.05 12 0.5 ball-props)
+		      (create-ball w -0.05 14 0.6 ball-props)
+		      (create-ball w -0.05 16 0.7 ball-props)
+		      (create-ball w -0.05 18 0.8 ball-props)
+		      (create-ball w -0.05 20 0.9 ball-props)
+		      (create-rect w -1.5 12 5 0.1 (assoc wall-props :angle (deg->rad -45)))
+		      (create-rect w 0 -1 5.5 0.1 {:type :static})]})))
 
 (defn -main []
-  (println "MAINLY MAIN")
-  (setup-world))
+  (setup-world)
+  (view sktch :title "BINK2d" :size [w h] :exit-on-close true))
