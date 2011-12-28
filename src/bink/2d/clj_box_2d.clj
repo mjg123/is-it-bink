@@ -20,7 +20,8 @@
 	       :density 0.9
 	       :friction 0.3
 	       :restitution 0.94
-	       :angle 0})
+	       :angle 0
+	       :user-data nil})
 
 (defn- vec2 [x y] (Vec2. x y)) 
 
@@ -47,6 +48,7 @@
     (set! (. cs m_radius) r)
 
     (set! (. bd type) (body-type (prop p :type)))
+    
     (set! (. fd density) (prop p :density))
     (set! (. fd friction) (prop p :friction))
     (set! (. fd restitution) (prop p :restitution))
@@ -54,7 +56,8 @@
     (set! (. fd shape) cs)
 
     (doto (.createBody world bd)
-      (.createFixture fd))))
+      (.createFixture fd)
+      (.setUserData (prop p :user-data)))))
 
 
 (defn create-rect [^World world x y w h & [p]]

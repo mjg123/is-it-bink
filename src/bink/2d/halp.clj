@@ -34,6 +34,7 @@
 		 r (* (. shape m_radius) scl)
 		 dia (* 2 r)]
 	     (doto sktch
+	       (stroke (:colour (.getUserData body)))
 	       (ellipse x y dia dia)
 	       (line x y (+ x (* r (Math/sin a))) (+ y (* r (Math/cos a)))))))
 
@@ -47,6 +48,7 @@
 		     ^Vec2 e (.getWorldPoint body (get vxs j))
 		     [sx sy] (box->world [(. s x) (. s y)])
 		     [ex ey] (box->world [(. e x) (. e y)])]
+		 (stroke sktch 255)
 		 (line sktch sx sy ex ey)))))
 
 (def sktch
@@ -69,13 +71,12 @@
 		(fill 0))
 
 	      (doseq [b (@everything :things)]
-		(stroke this 255)
 		(draw-body this b))))))
 
 
 ;; my-app stuff
 
-(def ball-props {:restitution 0.94})
+(def ball-props {:restitution 0.5 :user-data {:colour 128}})
 (def wall-props {:type :static})
 
 (defn no-fn [& n]
