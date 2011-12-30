@@ -8,22 +8,21 @@
   (:import org.jbox2d.collision.shapes.PolygonShape)
   (:import org.jbox2d.common.Vec2)
 
-
-  (:use [bink.2d.clj-box-2d :only [transform-fn step fixtures user-data]]))
+  (:use [bink.2d.clj-box-2d :only [transform-fn step fixtures user-data everything]]))
 
 (set! *warn-on-reflection* true)
 
 (def w 600)
 (def h 800)
 (def rate 60)
-(def scl 50)
-
-(def box->world
-  (transform-fn scl [(/ w 2) (- h 100)]))
 
 (defn prepare-sketch [sktch]
   (doto sktch
     (stroke 255)))
+
+
+(def box->world identity)
+(def scl 1)
 
 ;; drawing stuff
 
@@ -68,10 +67,6 @@
 
 ;;; 
 
-
-(defn show-sketch [sktch & {:keys [title] :or {title "Box2d + Processing"}}]
-  (view sktch :title title :size [w h] :exit-on-close true))
-
 (defn make-sketch
   "Pass a map with keys of :world and :things"
   [everything]
@@ -82,7 +77,7 @@
 	     (doto this
 	       (size w h)
 	       (framerate rate)
-	       (comment (smooth))))
+	       (smooth)))
       
       (draw []
 
@@ -94,3 +89,29 @@
 
 	    (doseq [b (everything :things)]
 	      (draw-body this b)))))
+
+(defn show-sketch
+
+  "Starts the simulation and visualisation.  Takes optional arguments:
+     :title - the title of the windowed app
+     :size - vector of [w h] for window size (default 800 600)
+     :scale - number of pixels to represent one metre along the axis (default 5)
+     :origin - pixel position to show world-location (0, 0) (default window-centre)"
+  
+  [& {:keys [title size scale origin]
+      :or {title "Box2d + Processing"
+	   size [800 600]
+	   scale 5
+	   origin nil}}]
+
+  (let [[sx sy] size
+	[ox oy] (if (nil? origin) [(/ sx 2) (/ sy 2)] origin)]
+    
+    (def w sx)
+    (def h sy)
+    (def scl scale)
+    (def box->world (transform-fn scale [ox oy]))
+    
+    (view (make-sketch @everything) :title title :size [w h] :exit-on-close true)
+    (str "Showing " title)))
+

@@ -17,7 +17,9 @@
 
 ;; My world fns
 
-(defn- vec2 [x y] (Vec2. x y)) 
+(defn- vec2
+  ([x y] (Vec2. x y))
+  ([[x y]] (Vec2. x y)))
 
 (def earth-gravity (vec2 0 -9.81))
 
@@ -48,14 +50,6 @@
 	       :user-data nil})
 
 
-(defn- prop [props k]
-  (get props k (get defaults k)))
-
-
-
-;; ctors
-
-
 ;; new-style
 
 (defn circle
@@ -75,10 +69,12 @@
     ps))
 
 (defn rectangle
-  "Creates a rectangle centred on the origin.  Takes halfwidth and halfheight."
-  [hx hy]
+  "Creates a rectangle.  Takes halfwidth and halfheight, and optionally:
+     :center The coordinates of the center (default: origin)
+     :angle The angle to rotate by (default 0)"
+  [hx hy & {:keys [center angle] :or {center [0 0] angle 0}}]
   (let [ps (PolygonShape.)]
-    (.setAsBox ps hx hy)
+    (.setAsBox ps hx hy (vec2 center) angle)
     ps))
 
 (defn compound
@@ -86,16 +82,29 @@
   [& shapes]
   shapes)
 
+(def named-bodies (atom {}))
+
+(defn named-body [name]
+  (@named-bodies name))
+
 (defn body
 
   "Adds a body to the world.  Takes a vector for position, a shape (or a seq of shapes,
    which will all be part of the same body) and optional named arguments:
-     :bodytype - can be :static, :dynamic or :kinematic (default :dynamic)
-     :user-data - any arbitrary data to be associated with this body (default nil)"
+     :bodytype    - can be :static, :dynamic or :kinematic (default :dynamic)
+     :user-data   - any arbitrary data to be associated with this body (default {})
+     :name        - a name for this body, to be retrieved by (named-body _) (default nil)
+     :restitution - coefficient of restitution (<= 0 r 1) (see defaults map)
+     :friction    - coefficient of friction (<= 0 f 1) (see defaults map)
+     :density     - density of this body (see defaults map)"
   
-  [[px py] shape & {:keys [bodytype user-data]
+  [[px py] shape & {:keys [bodytype user-data name restitution friction density]
 		    :or {bodytype :dynamic
-			 user-data nil}}]
+			 user-data {}
+			 name nil
+			 restitution (defaults :restitution)
+			 density (defaults :density)
+			 friction (defaults :friction)}}]
 
   (let [bd (BodyDef.)
 	shapes (if (seq? shape) shape (list shape))]
@@ -107,12 +116,13 @@
       (doseq [s shapes]
 	(let [fd (FixtureDef.)]
 	  (set! (. fd shape) s)
-	  (set! (. fd density) (defaults :density))
-	  (set! (. fd friction) (defaults :friction))
-	  (set! (. fd restitution) (defaults :restitution))
+	  (set! (. fd density) density)
+	  (set! (. fd friction) friction)
+	  (set! (. fd restitution) restitution)
 	  (.createFixture body fd)))
       (.setUserData body user-data)
       (add-thing! body)
+      (if name (swap! named-bodies assoc name body))
       body)))
 
 
@@ -131,7 +141,6 @@
 
 ;; joints
 
-
 (defn weld-joint [^Body body-a body-b]
   (let [joint-def (WeldJointDef.)]
     (.initialize joint-def body-a body-b (.getWorldCenter body-a))
@@ -144,7 +153,20 @@
 
 ;; general
 
+(def step-fns (atom []))
+
+(defn add-step-fn
+  "Adds a function to be run immediately *before* the world step function is called.
+   Allows update of body data.  Functions will be called without arguments."
+  [f]
+  (when (fn? f)
+    (swap! step-fns conj f)))
+
 (defn step [^World world step]
+  
+  (doseq [f @step-fns]
+    (f))
+  
   (let [velocity-iterations 8
 	position-iterations 3]
     (.step world step velocity-iterations position-iterations)))
