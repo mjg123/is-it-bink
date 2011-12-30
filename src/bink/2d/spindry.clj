@@ -1,4 +1,4 @@
-(ns bink.2d.washing
+(ns bink.2d.spindry
 
   (:use bink.2d.clj-box-2d)
   (:use bink.2d.processing)

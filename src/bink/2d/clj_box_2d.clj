@@ -28,8 +28,8 @@
 
 (def everything (atom {:world (create-world) :things []}))
 
-(defn add-thing! [thing]
-  (swap! everything assoc :things (conj (@everything :things) thing)))
+(defn- add-thing! [body]
+  (swap! everything assoc :things (conj (@everything :things) body)))
 
 (defn get-world ^World []
   (@everything :world))
@@ -37,7 +37,8 @@
 ;; utils
 
 (def bodytypes {:dynamic BodyType/DYNAMIC
-		:static BodyType/STATIC})
+		:static BodyType/STATIC
+		:kinematic BodyType/KINEMATIC})
 
 (def defaults {:type :dynamic
 	       :density 0.9
@@ -111,10 +112,13 @@
 	  (set! (. fd restitution) (defaults :restitution))
 	  (.createFixture body fd)))
       (.setUserData body user-data)
+      (add-thing! body)
       body)))
 
 
-(defn- unroll-fixtures [^Fixture f l]
+(defn- unroll-fixtures
+  ".getFixtureList returns a fixture with a .getNext method that might return null!!  what is this??"
+  [^Fixture f l]
   (if (nil? f) l
       (recur (.getNext f) (conj l f))))
 
@@ -123,68 +127,9 @@
   [^Body b]
   (unroll-fixtures (.getFixtureList b) '()))
 
-;; old-style
-
-(defn create-ball [[x y] r & [p]]
-
-  (let [bd (BodyDef.)
-	cs (CircleShape.)
-	fd (FixtureDef.)]
-    
-    (set! (. bd position) (vec2 x y))
-    (set! (. cs m_radius) r)
-
-    (set! (. bd type) (bodytypes  p :type))
-    
-    (set! (. fd density) (prop p :density))
-    (set! (. fd friction) (prop p :friction))
-    (set! (. fd restitution) (prop p :restitution))
-
-    (set! (. fd shape) cs)
-
-    (doto (.createBody (get-world) bd)
-      (.createFixture fd)
-      (.setUserData (prop p :user-data)))))
 
 
-(defn create-rect [[x y] w h & [p]]
-  
-  (let [ps (PolygonShape.)
-	fd (FixtureDef.)
-	bd (BodyDef.)]
-
-    (set! (. bd type) (bodytypes (prop p :type)))
-    
-    (.setAsBox ps w h (vec2 x y) (prop p :angle))
-    (set! (. fd shape) ps)
-    (set! (. fd density) (prop p :density))
-    (set! (. fd friction) (prop p :friction))
-    (set! (. fd restitution) (prop p :restitution))
-
-    (doto (.createBody (get-world) bd)
-      (.createFixture fd))))
-
-
-(defn create-polygon
-  "(create-polygon [[0 0] [1 0] [0 1]])"
-  [pts & [p]]
-  
-  (let [ps (PolygonShape.)
-	fd (FixtureDef.)
-	bd (BodyDef.)
-	vec-pts (map (fn [[x y]] (vec2 x y)) pts)]
-
-    (set! (. bd type) (bodytypes (prop p :type)))
-    
-    (.set ps (into-array vec-pts) (count vec-pts))
-    
-    (set! (. fd shape) ps)
-    (set! (. fd density) (prop p :density))
-    (set! (. fd friction) (prop p :friction))
-    (set! (. fd restitution) (prop p :restitution))
-
-    (doto (.createBody (get-world) bd)
-      (.createFixture fd))))
+;; joints
 
 
 (defn weld-joint [^Body body-a body-b]
@@ -205,9 +150,8 @@
     (.step world step velocity-iterations position-iterations)))
 
 (defn transform-fn
-  "Given a scale (in pixels-per-metre) and an origin position (in pixels)
-   returns a function that turns box coords (metres) into screen
-   coordinates (pixels)"
+  "Given a scale (in pixels-per-metre) and an origin position (ie where to put the world origin, in pixels)
+   returns a function that turns box coords (metres) into screen coordinates (pixels)"
   [scl [ox oy]]
   (fn [[x y]]
     [(+ (* x scl) ox)
@@ -217,7 +161,8 @@
   (/ (* 2 Math/PI deg) 360))
 
 
-(defn no-fn [& n] nil)
+;; used for the unimplemented methods when an interface is reified
+(def no-fn (constantly nil))
 
 (defn add-contact-listener! [& {:keys [begin-contact end-contact pre-solve post-solve]
 			       :or {begin-contact no-fn

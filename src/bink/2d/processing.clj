@@ -9,7 +9,7 @@
   (:import org.jbox2d.common.Vec2)
 
 
-  (:use [bink.2d.clj-box-2d :only [transform-fn step fixtures]]))
+  (:use [bink.2d.clj-box-2d :only [transform-fn step fixtures user-data]]))
 
 (set! *warn-on-reflection* true)
 
@@ -21,17 +21,25 @@
 (def box->world
   (transform-fn scl [(/ w 2) (- h 100)]))
 
+(defn prepare-sketch [sktch]
+  (doto sktch
+    (stroke 255)))
+
 ;; drawing stuff
 
 (defmulti draw-shape (fn [_ shape _ _ _] (class shape)))
 
-(defmethod draw-shape CircleShape [sktch ^CircleShape shape [x y] a _]
+(defmethod draw-shape CircleShape [sktch ^CircleShape shape [x y] a body]
 	   
 	   (let [r (* (. shape m_radius) scl)
 		 dia (* 2 r)]
+
+	     (prepare-sketch sktch)
 	     
-	     (doto sktch
-	       (stroke 255)
+	     (when-let [pfn ((user-data body) :processing-fn)]
+	       (pfn sktch))
+	     
+	     (doto sktch	       
 	       (ellipse x y dia dia)
 	       (line x y (+ x (* r (Math/sin a))) (+ y (* r (Math/cos a)))))))
 
