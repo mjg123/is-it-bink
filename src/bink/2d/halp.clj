@@ -76,7 +76,7 @@
 
 ;; my-app stuff
 
-(def ball-props {:restitution 0.5 :user-data {:colour 128}})
+(def ball-props {:restitution 0.5 :user-data {:colour 200}})
 (def wall-props {:type :static})
 
 (defn no-fn [& n]
@@ -89,9 +89,15 @@
 	 (preSolve [_ c m] ((fns :pre-solve no-fn) c m))
 	 (postSolve [_ c m] ((fns :post-solve no-fn) c m))))
 
+(defn get-bodies [c]
+  [(.getBody (.getFixtureA c)) (.getBody (.getFixtureB c))])
+
 (defn setup-world []
   (let [w (create-world)]
-    (.setContactListener w (create-listener {:begin-contact println}))
+    (.setContactListener w
+			 (create-listener
+			  {:begin-contact (fn [c] (println (map #(.getUserData %) (get-bodies c))))}))
+    
     (reset! everything
 	    {:world w
 	     :things [(create-ball w 0 10 0.1 ball-props)
