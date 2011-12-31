@@ -8,6 +8,7 @@
   (:import org.jbox2d.dynamics.contacts.Contact)
   (:import org.jbox2d.dynamics.joints.RevoluteJointDef)
   (:import org.jbox2d.dynamics.joints.WeldJointDef)
+  (:import org.jbox2d.collision.WorldManifold)
   (:import org.jbox2d.collision.shapes.CircleShape)
   (:import org.jbox2d.collision.shapes.PolygonShape)
   (:import org.jbox2d.common.Vec2))
@@ -96,21 +97,26 @@
      :name        - a name for this body, to be retrieved by (named-body _) (default nil)
      :restitution - coefficient of restitution (<= 0 r 1) (see defaults map)
      :friction    - coefficient of friction (<= 0 f 1) (see defaults map)
-     :density     - density of this body (see defaults map)"
+     :density     - density of this body (see defaults map)
+     :angle       - initial rotation of the body (default 0)
+     :angular-velocity - angular velocity of the body (default 0)"
   
-  [[px py] shape & {:keys [bodytype user-data name restitution friction density]
+  [[px py] shape & {:keys [bodytype user-data name restitution friction density angle angular-velocity]
 		    :or {bodytype :dynamic
 			 user-data {}
 			 name nil
 			 restitution (defaults :restitution)
 			 density (defaults :density)
-			 friction (defaults :friction)}}]
+			 friction (defaults :friction)
+			 angle 0
+			 angular-velocity 0}}]
 
   (let [bd (BodyDef.)
 	shapes (if (seq? shape) shape (list shape))]
     
     (set! (. bd position) (vec2 px py))
     (set! (. bd type) (bodytypes bodytype))
+    (set! (. bd angle)  angle)
     
     (let [body (.createBody (get-world) bd)]
       (doseq [s shapes]
@@ -121,6 +127,7 @@
 	  (set! (. fd restitution) restitution)
 	  (.createFixture body fd)))
       (.setUserData body user-data)
+      (.setAngularVelocity body angular-velocity)
       (add-thing! body)
       (if name (swap! named-bodies assoc name body))
       body)))
@@ -205,3 +212,15 @@
 
 (defn user-data [^Body b]
   (.getUserData b))
+
+(defn contact-velocity [^Contact c]
+  (let [wm (WorldManifold.)
+	_ (.getWorldManifold c wm)
+	ba (.getBody (.getFixtureA c))
+	bb (.getBody (.getFixtureB c))
+	pt (get (. wm points) 0)
+	va (.getLinearVelocityFromWorldPoint ba pt)
+	vb (.getLinearVelocityFromWorldPoint bb pt)
+	vel (Vec2/dot (.sub vb va) (. wm normal))]
+    (Math/abs vel)))
+
