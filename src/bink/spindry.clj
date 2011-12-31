@@ -1,4 +1,4 @@
-(ns bink.2d.spindry
+(ns bink.spindry
   (:use bink.2d.clj-box-2d)
   (:use bink.2d.processing)
   (:use [incanter.processing :only [stroke]])

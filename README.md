@@ -1,6 +1,6 @@
 # bink
 
-clockware for overtone.  run `lein repl`
+"clockware" for overtone.  run `lein run -m bink.spindry`
 
 ## more details?
 
